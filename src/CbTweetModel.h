@@ -22,6 +22,7 @@
 #include <gio/gio.h>
 
 #include "CbTweet.h"
+#include "CbUtils.h"
 
 
 typedef struct _CbTweetModel      CbTweetModel;
@@ -42,6 +43,9 @@ struct _CbTweetModel
 
   GPtrArray *tweets;
   GPtrArray *hidden_tweets;
+  GArray *priority_ids;
+  gint64 min_priority_id;
+  gint64 max_priority_id;
   gint64 min_id;
   gint64 max_id;
 };
@@ -93,6 +97,9 @@ gboolean cb_tweet_model_unset_tweet_flag (CbTweetModel *self,
 
 void     cb_tweet_model_add (CbTweetModel *self,
                              CbTweet      *tweet);
+
+void     cb_tweet_model_add_priority (CbTweetModel *self,
+                                      CbTweet      *tweet);
 
 void     cb_tweet_model_remove_last_n_visible (CbTweetModel *self,
                                                guint         amount);

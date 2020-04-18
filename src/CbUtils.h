@@ -72,6 +72,9 @@ CbUserIdentity * cb_utils_query_users_finish (GAsyncResult  *result,
                                               GError       **error);
 
 
+gint
+cb_utils_cmp_gint64 (gconstpointer a, gconstpointer b);
+
 static inline void
 cb_clear_source (guint *id)
 {

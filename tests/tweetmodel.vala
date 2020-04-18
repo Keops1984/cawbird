@@ -1,10 +1,22 @@
 
-bool is_sorted (Cb.TweetModel tm) {
+bool is_desc_sorted (Cb.TweetModel tm) {
   int64 last_id = ((Cb.Tweet)tm.get_item (0)).id;
 
   for (int i = 1; i < tm.get_n_items (); i ++) {
     Cb.Tweet t = (Cb.Tweet)tm.get_item (i);
     if (t.id > last_id) return false;
+
+    last_id = t.id;
+  }
+  return true;
+}
+
+bool is_asc_sorted (Cb.TweetModel tm) {
+  int64 last_id = ((Cb.Tweet)tm.get_item (0)).id;
+
+  for (int i = 1; i < tm.get_n_items (); i ++) {
+    Cb.Tweet t = (Cb.Tweet)tm.get_item (i);
+    if (t.id < last_id) return false;
 
     last_id = t.id;
   }
@@ -46,9 +58,43 @@ void basic_tweet_order () {
 
   assert (tm.get_n_items () == 3);
 
+  assert (is_desc_sorted (tm));
+
   assert (((Cb.Tweet)tm.get_item (0)).id == 1000);
   assert (((Cb.Tweet)tm.get_item (1)).id == 100);
   assert (((Cb.Tweet)tm.get_item (2)).id == 10);
+}
+
+void basic_tweet_order_asc () {
+  Cb.TweetModel tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+
+  Cb.Tweet t1 = new Cb.Tweet ();
+  t1.id = 10;
+
+  Cb.Tweet t2 = new Cb.Tweet ();
+  t2.id = 100;
+
+  Cb.Tweet t3 = new Cb.Tweet ();
+  t3.id = 1000;
+
+
+  tm.add (t3); // 1000
+  assert (tm.min_id == 1000);
+  assert (tm.max_id == 1000);
+  tm.add (t1); // 10
+  assert (tm.min_id == 10);
+  assert (tm.max_id == 1000);
+  assert (tm.min_id == 10);
+  assert (tm.max_id == 1000); tm.add (t2); // 100
+
+  assert (tm.get_n_items () == 3);
+
+  assert (is_asc_sorted (tm));
+
+  assert (((Cb.Tweet)tm.get_item (0)).id == 10);
+  assert (((Cb.Tweet)tm.get_item (1)).id == 100);
+  assert (((Cb.Tweet)tm.get_item (2)).id == 1000);
 }
 
 
@@ -150,6 +196,14 @@ void remove_tweet () {
   tm.remove_tweet (t1);
 
   assert (tm.get_n_items () == 0);
+
+  tm.add_priority (t2);
+
+  assert (tm.get_n_items () == 1);
+
+  tm.remove_tweet (t2);
+
+  assert (tm.get_n_items () == 0);
 }
 
 void remove_hidden () {
@@ -244,6 +298,20 @@ void get_for_id () {
 
   assert (result != null);
   assert (result.id == 100);
+
+  var t3 = new Cb.Tweet ();
+  t3.id = 1000;
+  tm.add (t3);
+
+  result = tm.get_for_id (100, 1);
+
+  assert (result != null);
+  assert (result.id == 10);
+
+  result = tm.get_for_id (100, -1);
+
+  assert (result != null);
+  assert (result.id == 1000);
 }
 
 void min_max_id () {
@@ -271,7 +339,18 @@ void sorting () {
     tm.add (t);
   }
 
-  assert (is_sorted (tm));
+  assert (is_desc_sorted (tm));
+
+  tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+
+  for (int i = 0; i < 100; i ++) {
+    var t = new Cb.Tweet ();
+    t.id = GLib.Random.next_int ();
+    tm.add (t);
+  }
+
+  assert (is_asc_sorted (tm));
 }
 
 void min_max_remove () {
@@ -431,9 +510,59 @@ void same_id () {
   assert (tm.max_id == 1337);
 }
 
+void priority_ids_basic () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+  var t = new Cb.Tweet ();
+  t.id = 100;
+  var prio_t = new Cb.Tweet ();
+  prio_t.id = 1000;
+
+  tm.add(t);
+  tm.add_priority (prio_t);
+
+  // Ascending order, but our priority item should come first
+  assert(((Cb.Tweet)tm.get_item (0)).id == 1000);
+  assert(((Cb.Tweet)tm.get_item (1)).id == 100);
+}
+
+void priority_ids () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+  var t1 = new Cb.Tweet ();
+  t1.id = 100;
+  var t2 = new Cb.Tweet ();
+  t2.id = 1000;
+  var t3 = new Cb.Tweet ();
+  t3.id = 10;
+  var prio_t1 = new Cb.Tweet ();
+  prio_t1.id = 1001;
+  var prio_t2 = new Cb.Tweet ();
+  prio_t2.id = 11;
+  var prio_t3 = new Cb.Tweet ();
+  prio_t3.id = 101;
+
+  tm.add(t1);
+  tm.add_priority (prio_t1);
+  tm.add(t2);
+  tm.add_priority (prio_t2);
+  tm.add(t3);
+  tm.add_priority (prio_t3);
+  assert(tm.get_n_items () == 6);
+
+  // Ascending order, but our priority item should come first
+  assert(((Cb.Tweet)tm.get_item (0)).id == 11);
+  assert(((Cb.Tweet)tm.get_item (1)).id == 101);
+  assert(((Cb.Tweet)tm.get_item (2)).id == 1001);
+  assert(((Cb.Tweet)tm.get_item (3)).id == 10);
+  assert(((Cb.Tweet)tm.get_item (4)).id == 100);
+  assert(((Cb.Tweet)tm.get_item (5)).id == 1000);
+}
+
 int main (string[] args) {
   GLib.Test.init (ref args);
   GLib.Test.add_func ("/tweetmodel/basic-tweet-order", basic_tweet_order);
+  GLib.Test.add_func ("/tweetmodel/basic-tweet-order-asc", basic_tweet_order_asc);
   GLib.Test.add_func ("/tweetmodel/tweet-removal", tweet_removal);
   GLib.Test.add_func ("/tweetmodel/clear", clear);
   GLib.Test.add_func ("/tweetmodel/clear2", clear2);
@@ -449,6 +578,8 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/empty-hidden-tweets", empty_hidden_tweets);
   GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible", hidden_remove_last_n_visible);
   GLib.Test.add_func ("/tweetmodel/same-id", same_id);
+  GLib.Test.add_func ("/tweetmodel/priority-basic", priority_ids_basic);
+  GLib.Test.add_func ("/tweetmodel/priority", priority_ids);
 
   return GLib.Test.run ();
 }

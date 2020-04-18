@@ -460,7 +460,7 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
       if (!obj.has_member ("in_reply_to_status_id") || obj.get_null_member ("in_reply_to_status_id"))
         return;
       
-        int64 reply_id = obj.get_int_member ("in_reply_to_status_id");
+      int64 reply_id = obj.get_int_member ("in_reply_to_status_id");
 
       if (!(reply_id in thread_ids)) {
         // Not relevant to the thread? Skip it
@@ -475,14 +475,17 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
         return;
       }
       
-      if (reply_screen_name == screen_name) {
-        // Must be relevant by now, so matching screen name means it's more of the author's thread
-        thread_ids += obj.get_int_member("id");
-      }
-
+      
       var t = new Cb.Tweet ();
       t.load_from_json (node, account.id, now);
-      replies_list_box.model.add (t);
+      if (reply_screen_name == screen_name) {
+        // Must be relevant by now, so matching screen name means it's more of the author's thread
+        thread_ids += t.id;
+        replies_list_box.model.add_priority (t);
+      }
+      else {
+        replies_list_box.model.add (t);
+      }
       n_replies ++;
     });
 

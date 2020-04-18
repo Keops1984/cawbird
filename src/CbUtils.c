@@ -705,3 +705,19 @@ cb_utils_query_users_finish (GAsyncResult  *result,
 
   return ids;
 }
+
+gint
+cb_utils_cmp_gint64 (gconstpointer a, gconstpointer b)
+{
+  gint64 * _a = (gint64 *) a;
+  gint64 * _b = (gint64 *) b;
+
+  if ((*_a) == (*_b)) {
+    return 0;
+  }
+  else if ((*_a) < (*_b)) {
+    return -1;
+  } else {
+    return 1;
+  }
+}
