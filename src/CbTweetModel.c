@@ -274,7 +274,9 @@ insert_sorted (CbTweetModel *self,
   g_ptr_array_insert (self->tweets, insert_pos, tweet);
 
   if (is_priority) {
-    g_array_append_val(self->priority_ids, tweet->id);
+    // Priority tweets are at the start of the tweet list, therefore index positions
+    // should match to maintain ordering
+    g_array_insert_val(self->priority_ids, insert_pos, tweet->id);
   }
 
   emit_items_changed (self, insert_pos, 0, 1);
@@ -748,10 +750,11 @@ cb_tweet_model_add_priority (CbTweetModel *self,
 }
 
 void
-cb_tweet_model_remove_last_n_visible (CbTweetModel *self,
-                                     guint          amount)
+cb_tweet_model_remove_oldest_n_visible (CbTweetModel *self,
+                                        guint          amount)
 {
   int size_before;
+  int start;
 
   g_return_if_fail (CB_IS_TWEET_MODEL (self));
 
@@ -759,11 +762,18 @@ cb_tweet_model_remove_last_n_visible (CbTweetModel *self,
 
   size_before = self->tweets->len;
 
+  if (self->ascending) {
+    start = 0;
+  }
+  else {
+    start = size_before - amount;
+  }
+
   g_ptr_array_remove_range (self->tweets,
-                            size_before - amount,
+                            start,
                             amount);
   update_min_max_id (self, self->min_id);
-  emit_items_changed (self, size_before - amount, amount, 0);
+  emit_items_changed (self, start, amount, 0);
 }
 
 void

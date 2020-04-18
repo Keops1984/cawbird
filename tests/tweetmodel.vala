@@ -131,7 +131,7 @@ void tweet_removal () {
   // Now remove the last 5 visible ones.
   // This should remove 2 invisible tweets as well as 5 visible ones
   // Leaving the model with 5 remaining tweets
-  tm.remove_last_n_visible (5);
+  tm.remove_oldest_n_visible (5);
 
   assert (tm.get_n_items () == 5);
 }
@@ -445,7 +445,7 @@ void tweet_count () {
   assert (tm.hidden_tweets.length == 0);
 }
 
-void hidden_remove_last_n_visible () {
+void hidden_remove_oldest_n_visible () {
   var tm = new Cb.TweetModel ();
 
   for (int i = 0; i < 20; i ++) {
@@ -467,7 +467,47 @@ void hidden_remove_last_n_visible () {
   assert (tm.get_n_items () == 20);
   assert (tm.hidden_tweets.length == 2);
 
-  tm.remove_last_n_visible (20);
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 10);
+  for (int i = 0; i < 10; i ++) {
+    assert (((Cb.Tweet)tm.get_item (i)).id >= 30);
+  }
+
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 0);
+}
+
+void hidden_remove_oldest_n_visible_asc () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+
+  for (int i = 0; i < 20; i ++) {
+    var t = new Cb.Tweet();
+    t.id = 10 + (i * 2); // Only even ids
+    tm.add (t);
+  }
+
+  var t1 = new Cb.Tweet ();
+  t1.id = 15;
+  t1.set_flag (Cb.TweetState.HIDDEN_UNFOLLOWED);
+  tm.add (t1);
+
+  var t2 = new Cb.Tweet ();
+  t2.id = 21;
+  t2.set_flag (Cb.TweetState.HIDDEN_AUTHOR_MUTED);
+  tm.add (t2);
+
+  assert (tm.get_n_items () == 20);
+  assert (tm.hidden_tweets.length == 2);
+
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 10);
+  for (int i = 0; i < 10; i ++) {
+    debug("%lld", ((Cb.Tweet)tm.get_item (i)).id);
+    assert (((Cb.Tweet)tm.get_item (i)).id >= 30);
+  }
+
+  tm.remove_oldest_n_visible (10);
   assert (tm.get_n_items () == 0);
 }
 
@@ -576,7 +616,8 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/min-max-remove", min_max_remove);
   GLib.Test.add_func ("/tweetmodel/tweet-count", tweet_count);
   GLib.Test.add_func ("/tweetmodel/empty-hidden-tweets", empty_hidden_tweets);
-  GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible", hidden_remove_last_n_visible);
+  GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible", hidden_remove_oldest_n_visible);
+  GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible-asc", hidden_remove_oldest_n_visible_asc);
   GLib.Test.add_func ("/tweetmodel/same-id", same_id);
   GLib.Test.add_func ("/tweetmodel/priority-basic", priority_ids_basic);
   GLib.Test.add_func ("/tweetmodel/priority", priority_ids);
