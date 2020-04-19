@@ -511,6 +511,53 @@ void hidden_remove_oldest_n_visible_asc () {
   assert (tm.get_n_items () == 0);
 }
 
+void hidden_remove_oldest_n_visible_with_priority () {
+  var tm = new Cb.TweetModel ();
+
+  for (int i = 0; i < 5; i ++) {
+    var t = new Cb.Tweet();
+    t.id = (i * 2); // Only even ids
+    tm.add_priority (t);
+  }
+
+  for (int i = 0; i < 20; i ++) {
+    var t = new Cb.Tweet();
+    t.id = 10 + (i * 2); // Only even ids
+    tm.add (t);
+  }
+
+  var t1 = new Cb.Tweet ();
+  t1.id = 15;
+  t1.set_flag (Cb.TweetState.HIDDEN_UNFOLLOWED);
+  tm.add (t1);
+
+  var t2 = new Cb.Tweet ();
+  t2.id = 21;
+  t2.set_flag (Cb.TweetState.HIDDEN_AUTHOR_MUTED);
+  tm.add (t2);
+
+  assert (tm.get_n_items () == 25);
+  assert (tm.hidden_tweets.length == 2);
+
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 15);
+  for (int i = 0; i < tm.get_n_items (); i ++) {
+    var id = ((Cb.Tweet)tm.get_item (i)).id;
+    // We should keep the priority items, even if they're older
+    assert (id < 10 || id >= 30);
+  }
+
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 5);
+  for (int i = 0; i < tm.get_n_items (); i ++) {
+    var id = ((Cb.Tweet)tm.get_item (i)).id;
+    assert (id < 10);
+  }
+
+  tm.remove_oldest_n_visible (10);
+  assert (tm.get_n_items () == 5);
+}
+
 void empty_hidden_tweets () {
   int n = 100;
   var tm = new Cb.TweetModel ();
@@ -618,6 +665,7 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/empty-hidden-tweets", empty_hidden_tweets);
   GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible", hidden_remove_oldest_n_visible);
   GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible-asc", hidden_remove_oldest_n_visible_asc);
+  GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-with-priority", hidden_remove_oldest_n_visible_with_priority);
   GLib.Test.add_func ("/tweetmodel/same-id", same_id);
   GLib.Test.add_func ("/tweetmodel/priority-basic", priority_ids_basic);
   GLib.Test.add_func ("/tweetmodel/priority", priority_ids);

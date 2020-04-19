@@ -121,11 +121,9 @@ update_min_max_id (CbTweetModel *self,
       g_assert (t->id != old_id);
     }
 #endif
-  //FIXME: Need to handle separate "priority IDs" and how they affect clearing hidden tweets
-  // May just need to do a g_array_binary_search to check if it's a priority and do special casing
   if (old_id == self->max_id)
     {
-      if (self->tweets->len > 0)
+      if ((self->tweets->len - self->priority_ids->len) > 0)
         {
           CbTweet *t = g_ptr_array_index (self->tweets, 0);
 
@@ -153,7 +151,7 @@ update_min_max_id (CbTweetModel *self,
 
   if (old_id == self->min_id)
     {
-      if (self->tweets->len > 0)
+      if ((self->tweets->len - self->priority_ids->len) > 0)
         {
           CbTweet *t = g_ptr_array_index (self->tweets, self->tweets->len - 1);
 
@@ -757,10 +755,12 @@ cb_tweet_model_remove_oldest_n_visible (CbTweetModel *self,
   int start;
 
   g_return_if_fail (CB_IS_TWEET_MODEL (self));
+  size_before = self->tweets->len - self->priority_ids->len;
 
-  g_assert (amount <= self->tweets->len);
+  if (amount > size_before) {
+    amount = size_before;
+  }
 
-  size_before = self->tweets->len;
 
   if (self->ascending) {
     start = 0;
@@ -768,6 +768,8 @@ cb_tweet_model_remove_oldest_n_visible (CbTweetModel *self,
   else {
     start = size_before - amount;
   }
+
+  start += self->priority_ids->len;
 
   g_ptr_array_remove_range (self->tweets,
                             start,
