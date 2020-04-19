@@ -204,10 +204,9 @@ static void
 remove_tweet_at_pos (CbTweetModel *self,
                      guint         index)
 {
+  g_assert (index < self->tweets->len);
   CbTweet *tweet = g_ptr_array_index (self->tweets, index);
   gint64 id = tweet->id;
-
-  g_assert (index < self->tweets->len);
 
   g_ptr_array_remove_index (self->tweets, index);
   tweet = NULL; /* We just unreffed it, so potentially freed */
