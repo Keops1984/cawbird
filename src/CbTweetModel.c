@@ -189,11 +189,9 @@ remove_tweet_at_pos (CbTweetModel *self,
   g_ptr_array_remove_index (self->tweets, index);
   tweet = NULL; /* We just unreffed it, so potentially freed */
 
-  /* TODO: If this tweet was the one with id == min_id or id == max_id,
-   *       we should remove tweets from self->hidden_tweets with id
-   *       greater or lower than its id. 
-   */
-  // TODO: Same, but for removing priority IDs
+  if (index < self->priority_ids->len) {
+    g_array_remove_index (self->priority_ids, index);
+  }
 
   update_min_max_id (self, id);
   emit_items_changed (self, index, 1, 0);
