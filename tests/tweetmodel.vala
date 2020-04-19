@@ -445,6 +445,79 @@ void tweet_count () {
   assert (tm.hidden_tweets.length == 0);
 }
 
+void tweet_count_with_priority () {
+  var tm = new Cb.TweetModel ();
+
+  // Some tweets to hide
+  var t1 = new Cb.Tweet ();
+  t1.id = 15;
+  t1.source_tweet = Cb.MiniTweet ();
+  t1.source_tweet.author = Cb.UserIdentity ();
+  t1.source_tweet.author.id = 11;
+  t1.retweeted_tweet = Cb.MiniTweet ();
+  t1.retweeted_tweet.id = 100;
+  t1.retweeted_tweet.author = Cb.UserIdentity ();
+  t1.retweeted_tweet.author.id = 111;
+
+  var t2 = new Cb.Tweet ();
+  t2.id = 26;
+  t2.source_tweet = Cb.MiniTweet ();
+  t2.source_tweet.author = Cb.UserIdentity ();
+  t2.source_tweet.author.id = 11;
+
+  var t3 = new Cb.Tweet ();
+  t3.id = 30;
+  t3.source_tweet = Cb.MiniTweet ();
+  t3.source_tweet.author = Cb.UserIdentity ();
+  t3.source_tweet.author.id = 11;
+
+  // Some tweets to make sure update_min_max_id doesn't prune anything
+  var t4 = new Cb.Tweet ();
+  t4.id = 20;
+
+  var t5 = new Cb.Tweet ();
+  t5.id = 35;
+
+  tm.add_priority (t1);
+  tm.add_priority (t2);
+  tm.add (t3);
+  tm.add (t4);
+  tm.add (t5);
+  assert (tm.get_n_items () == 5);
+  assert (((Cb.Tweet)tm.get_item (0)).id == t2.id);
+  assert (((Cb.Tweet)tm.get_item (1)).id == t1.id);
+  assert (((Cb.Tweet)tm.get_item (2)).id == t5.id);
+  assert (((Cb.Tweet)tm.get_item (3)).id == t3.id);
+  assert (((Cb.Tweet)tm.get_item (4)).id == t4.id);
+
+  tm.toggle_flag_on_user_tweets (11, Cb.TweetState.HIDDEN_FILTERED, true);
+  assert (tm.get_n_items () == 3);
+  assert (tm.hidden_tweets.length == 2);
+  assert (((Cb.Tweet)tm.get_item (0)).id == t1.id);
+  assert (((Cb.Tweet)tm.get_item (1)).id == t5.id);
+  assert (((Cb.Tweet)tm.get_item (2)).id == t4.id);
+  tm.toggle_flag_on_user_retweets (11, Cb.TweetState.HIDDEN_FILTERED, true);
+  assert (tm.get_n_items () == 2);
+  assert (tm.hidden_tweets.length == 3);
+  assert (((Cb.Tweet)tm.get_item (0)).id == t5.id);
+  assert (((Cb.Tweet)tm.get_item (1)).id == t4.id);
+  tm.toggle_flag_on_user_tweets (11, Cb.TweetState.HIDDEN_FILTERED, false);
+  assert (tm.get_n_items () == 4);
+  assert (tm.hidden_tweets.length == 1);
+  assert (((Cb.Tweet)tm.get_item (0)).id == t2.id);
+  assert (((Cb.Tweet)tm.get_item (1)).id == t5.id);
+  assert (((Cb.Tweet)tm.get_item (2)).id == t3.id);
+  assert (((Cb.Tweet)tm.get_item (3)).id == t4.id);
+  tm.toggle_flag_on_user_retweets (11, Cb.TweetState.HIDDEN_FILTERED, false);
+  assert (tm.get_n_items () == 5);
+  assert (tm.hidden_tweets.length == 0);
+  assert (((Cb.Tweet)tm.get_item (0)).id == t2.id);
+  assert (((Cb.Tweet)tm.get_item (1)).id == t1.id);
+  assert (((Cb.Tweet)tm.get_item (2)).id == t5.id);
+  assert (((Cb.Tweet)tm.get_item (3)).id == t3.id);
+  assert (((Cb.Tweet)tm.get_item (4)).id == t4.id);
+}
+
 void hidden_remove_oldest_n_visible () {
   var tm = new Cb.TweetModel ();
 
@@ -662,6 +735,7 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/sorting", sorting);
   GLib.Test.add_func ("/tweetmodel/min-max-remove", min_max_remove);
   GLib.Test.add_func ("/tweetmodel/tweet-count", tweet_count);
+  GLib.Test.add_func ("/tweetmodel/tweet-count-with-priority", tweet_count_with_priority);
   GLib.Test.add_func ("/tweetmodel/empty-hidden-tweets", empty_hidden_tweets);
   GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible", hidden_remove_oldest_n_visible);
   GLib.Test.add_func ("/tweetmodel/hidden-remove-last-n-visible-asc", hidden_remove_oldest_n_visible_asc);

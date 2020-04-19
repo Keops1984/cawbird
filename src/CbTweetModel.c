@@ -74,6 +74,7 @@ cb_tweet_model_init (CbTweetModel *self)
   self->hidden_tweets = g_ptr_array_new_with_free_func (g_object_unref);
   self->ascending = FALSE;
   self->priority_ids = g_array_new (FALSE, FALSE, sizeof (gint64));
+  self->non_priority_start = 0;
   self->min_priority_id = G_MAXINT64;
   self->max_priority_id = G_MININT64;
   self->min_id = G_MAXINT64;
@@ -123,7 +124,7 @@ update_min_max_id (CbTweetModel *self,
 #endif
   if (old_id == self->max_id)
     {
-      if ((self->tweets->len - self->priority_ids->len) > 0)
+      if ((self->tweets->len - self->non_priority_start) > 0)
         {
           CbTweet *t = g_ptr_array_index (self->tweets, 0);
 
@@ -151,7 +152,7 @@ update_min_max_id (CbTweetModel *self,
 
   if (old_id == self->min_id)
     {
-      if ((self->tweets->len - self->priority_ids->len) > 0)
+      if ((self->tweets->len - self->non_priority_start) > 0)
         {
           CbTweet *t = g_ptr_array_index (self->tweets, self->tweets->len - 1);
 
@@ -175,6 +176,28 @@ update_min_max_id (CbTweetModel *self,
           g_ptr_array_remove_range (self->hidden_tweets, 0, self->hidden_tweets->len);
         }
     }
+
+  if (old_id == self->max_priority_id) {
+    if (self->non_priority_start > 0) {
+      CbTweet *t = g_ptr_array_index (self->tweets, self->ascending ? self->non_priority_start - 1 : 0);
+      self->max_priority_id = t->id;
+    }
+    else {
+      self->max_priority_id = G_MININT64;
+      self->min_priority_id = G_MAXINT64;
+    }
+  }
+
+  if (old_id == self->min_priority_id) {
+    if (self->non_priority_start > 0) {
+      CbTweet *t = g_ptr_array_index (self->tweets, self->ascending ? 0 : self->non_priority_start - 1);
+      self->min_priority_id = t->id;
+    }
+    else {
+      self->max_priority_id = G_MININT64;
+      self->min_priority_id = G_MAXINT64;
+    }
+  }
 }
 
 static void
@@ -189,8 +212,11 @@ remove_tweet_at_pos (CbTweetModel *self,
   g_ptr_array_remove_index (self->tweets, index);
   tweet = NULL; /* We just unreffed it, so potentially freed */
 
-  if (index < self->priority_ids->len) {
-    g_array_remove_index (self->priority_ids, index);
+  if (index < self->non_priority_start) {
+    guint priority_index;
+    gboolean success = g_array_binary_search (self->priority_ids, &id, cb_utils_cmp_gint64, &priority_index);
+    g_array_remove_index (self->priority_ids, priority_index);
+    self->non_priority_start--;
   }
 
   update_min_max_id (self, id);
@@ -206,27 +232,27 @@ insert_sorted (CbTweetModel *self,
 
   if (tweet->id > self->max_id && !is_priority)
     {
-      insert_pos = self->ascending ? self->tweets->len : self->priority_ids->len;
+      insert_pos = self->ascending ? self->tweets->len : self->non_priority_start;
     }
   else if (tweet->id < self->min_id && !is_priority)
     {
-      insert_pos = self->ascending ? self->priority_ids->len : self->tweets->len;
+      insert_pos = self->ascending ? self->non_priority_start : self->tweets->len;
     }
   else if (tweet->id > self->max_priority_id && is_priority)
     {
-      insert_pos = self->ascending ? self->priority_ids->len : 0;
+      insert_pos = self->ascending ? self->non_priority_start : 0;
     }
   else if (tweet->id < self->min_priority_id && is_priority)
     {
-      insert_pos = self->ascending ? 0 : self->priority_ids->len;
+      insert_pos = self->ascending ? 0 : self->non_priority_start;
     }
   else
     {
       /* This case should be relatively rare in real life since
        * we only ever add tweets at the top or bottom of a list */
-      int i;
-      int start = is_priority ? 0 : self->priority_ids->len;
-      int end = is_priority ? self->priority_ids->len : self->tweets->len;
+      guint i;
+      guint start = is_priority ? 0 : self->non_priority_start;
+      guint end = is_priority ? self->non_priority_start : self->tweets->len;
       CbTweet *next = g_ptr_array_index (self->tweets, start);
 
       for (i = start + 1; i < end; i ++)
@@ -268,13 +294,6 @@ insert_sorted (CbTweetModel *self,
 
   g_object_ref (tweet);
   g_ptr_array_insert (self->tweets, insert_pos, tweet);
-
-  if (is_priority) {
-    // Priority tweets are at the start of the tweet list, therefore index positions
-    // should match to maintain ordering
-    g_array_insert_val(self->priority_ids, insert_pos, tweet->id);
-  }
-
   emit_items_changed (self, insert_pos, 0, 1);
 }
 
@@ -286,6 +305,16 @@ add_tweet_internal (CbTweetModel *self,
   g_return_if_fail (CB_IS_TWEET_MODEL (self));
   g_return_if_fail (CB_IS_TWEET (tweet));
 
+  if (is_priority) {
+    gboolean id_exists = g_array_binary_search (self->priority_ids, &tweet->id, cb_utils_cmp_gint64, NULL);
+    if (!id_exists) {
+      g_array_append_val (self->priority_ids, tweet->id);
+      // The list *should* be sorted except the new item, so hopefully this is a fast sort
+      // It's definitely safer than implementing a binary insert ourselves
+      g_array_sort (self->priority_ids, cb_utils_cmp_gint64);
+    }
+  }
+
   if (cb_tweet_is_hidden (tweet))
     {
       g_object_ref (tweet);
@@ -296,6 +325,8 @@ add_tweet_internal (CbTweetModel *self,
       insert_sorted (self, tweet, is_priority);
 
       if (is_priority) {
+        self->non_priority_start++;
+
         if (tweet->id > self->max_priority_id)
           self->max_priority_id = tweet->id;
 
@@ -319,13 +350,18 @@ hide_tweet_internal (CbTweetModel *self,
   CbTweet *tweet = g_ptr_array_index (self->tweets, index);
   gint64 id = tweet->id;
 
+  // XXX: Not clear about all this ref'ing and unref'ing - doesn't match "show_tweet_internal"!
   g_object_ref (tweet);
   g_ptr_array_remove_index (self->tweets, index);
+  if (index < self->non_priority_start) {
+    self->non_priority_start--;
+  }
   g_object_ref (tweet); /* Have to ref manually */
   g_ptr_array_add (self->hidden_tweets, tweet);
   g_object_unref (tweet);
 
   update_min_max_id (self, id);
+  emit_items_changed (self, index, 1, 0);
 }
 
 static void
@@ -370,6 +406,7 @@ cb_tweet_model_clear (CbTweetModel *self)
   g_ptr_array_remove_range (self->hidden_tweets, 0, self->hidden_tweets->len);
   g_array_remove_range (self->priority_ids, 0, self->priority_ids->len);
 
+  self->non_priority_start = 0;
   self->min_priority_id = G_MAXINT64;
   self->max_priority_id = G_MININT64;
   self->min_id = G_MAXINT64;
@@ -651,7 +688,6 @@ cb_tweet_model_set_tweet_flag (CbTweetModel *self,
               if (t == tweet)
                 {
                   hide_tweet_internal (self, i);
-                  emit_items_changed (self, i, 1, 0);
                   break;
                 }
             }
@@ -753,7 +789,7 @@ cb_tweet_model_remove_oldest_n_visible (CbTweetModel *self,
   int start;
 
   g_return_if_fail (CB_IS_TWEET_MODEL (self));
-  size_before = self->tweets->len - self->priority_ids->len;
+  size_before = self->tweets->len - self->non_priority_start;
 
   if (amount > size_before) {
     amount = size_before;
@@ -767,7 +803,7 @@ cb_tweet_model_remove_oldest_n_visible (CbTweetModel *self,
     start = size_before - amount;
   }
 
-  start += self->priority_ids->len;
+  start += self->non_priority_start;
 
   g_ptr_array_remove_range (self->tweets,
                             start,
