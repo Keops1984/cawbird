@@ -126,7 +126,7 @@ update_min_max_id (CbTweetModel *self,
     {
       if ((self->tweets->len - self->non_priority_start) > 0)
         {
-          CbTweet *t = g_ptr_array_index (self->tweets, 0);
+          CbTweet *t = g_ptr_array_index (self->tweets, self->ascending ? self->tweets->len - 1 : self->non_priority_start);
 
           self->max_id = t->id;
 
@@ -154,7 +154,7 @@ update_min_max_id (CbTweetModel *self,
     {
       if ((self->tweets->len - self->non_priority_start) > 0)
         {
-          CbTweet *t = g_ptr_array_index (self->tweets, self->tweets->len - 1);
+          CbTweet *t = g_ptr_array_index (self->tweets, self->ascending ? self->non_priority_start : self->tweets->len - 1);
 
           self->min_id = t->id;
           /* We just removed the tweet with the min_id, so now remove all hidden tweets

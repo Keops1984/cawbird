@@ -327,6 +327,44 @@ void min_max_id () {
 
   assert (tm.min_id == 1337);
   assert (tm.max_id == 1337);
+
+  var t3 = new Cb.Tweet ();
+  t3.id = 1400;
+  tm.add (t3);
+
+  var t4 = new Cb.Tweet ();
+  t4.id = 1300;
+  tm.add (t4);
+
+  assert (tm.min_id == 1300);
+  assert (tm.max_id == 1400);
+}
+
+void min_max_id_ascending () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+  var t = new Cb.Tweet ();
+  t.id = 1337;
+  tm.add (t);
+
+  var t2 = new Cb.Tweet ();
+  t2.id = 30000;
+  t2.set_flag (Cb.TweetState.HIDDEN_FORCE);
+  tm.add (t2); // Hidden tweets shouldn't affect the min/max id values
+
+  assert (tm.min_id == 1337);
+  assert (tm.max_id == 1337);
+
+  var t3 = new Cb.Tweet ();
+  t3.id = 1400;
+  tm.add (t3);
+
+  var t4 = new Cb.Tweet ();
+  t4.id = 1300;
+  tm.add (t4);
+
+  assert (tm.min_id == 1300);
+  assert (tm.max_id == 1400);
 }
 
 
@@ -355,6 +393,55 @@ void sorting () {
 
 void min_max_remove () {
   var tm = new Cb.TweetModel ();
+
+  var t1 = new Cb.Tweet ();
+  t1.id = 10;
+  tm.add (t1);
+
+  var t2 = new Cb.Tweet ();
+  t2.id = 20;
+  tm.add (t2);
+
+  var t3 = new Cb.Tweet ();
+  t3.id = 2;
+  tm.add (t3);
+
+  assert (tm.max_id == 20);
+  assert (tm.min_id == 2);
+
+  tm.remove_tweet (t1);
+  // Should still be the same
+  assert (tm.max_id == 20);
+  assert (tm.min_id == 2);
+
+  var t = new Cb.Tweet ();
+  t.id = 10;
+  tm.add (t);
+
+  // And again...
+  assert (tm.max_id == 20);
+  assert (tm.min_id == 2);
+
+
+  // Now it gets interesting
+  tm.remove_tweet (t2);
+  assert (tm.min_id == 2);
+  assert (tm.max_id == 10);
+  assert (tm.max_id == get_max_id (tm));
+
+  tm.remove_tweet (t3);
+  assert (tm.min_id == 10);
+  assert (tm.max_id == 10);
+
+  tm.remove_tweet (t);
+  assert (tm.get_n_items () == 0);
+  assert (tm.min_id == int64.MAX);
+  assert (tm.max_id == int64.MIN);
+}
+
+void min_max_remove_ascending () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
 
   var t1 = new Cb.Tweet ();
   t1.id = 10;
@@ -732,8 +819,10 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/hide-rt", hide_rt);
   GLib.Test.add_func ("/tweetmodel/get-for-id", get_for_id);
   GLib.Test.add_func ("/tweetmodel/min-max-id", min_max_id);
+  GLib.Test.add_func ("/tweetmodel/min-max-id-ascending", min_max_id_ascending);
   GLib.Test.add_func ("/tweetmodel/sorting", sorting);
   GLib.Test.add_func ("/tweetmodel/min-max-remove", min_max_remove);
+  GLib.Test.add_func ("/tweetmodel/min-max-remove-ascending", min_max_remove_ascending);
   GLib.Test.add_func ("/tweetmodel/tweet-count", tweet_count);
   GLib.Test.add_func ("/tweetmodel/tweet-count-with-priority", tweet_count_with_priority);
   GLib.Test.add_func ("/tweetmodel/empty-hidden-tweets", empty_hidden_tweets);
