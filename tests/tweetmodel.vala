@@ -248,6 +248,40 @@ void remove_own_retweet () {
   assert (tm.get_n_items () == 50);
 }
 
+void remove_older () {
+  var tm = new Cb.TweetModel ();
+
+  for (int i = 1; i < 51; i ++) {
+    var t = new Cb.Tweet ();
+    t.id = i;
+    tm.add (t);
+  }
+
+  assert (tm.get_n_items () == 50);
+  tm.remove_tweets_later_than (25);
+  debug("%u", tm.get_n_items ());
+  assert (tm.get_n_items () == 24);
+  assert (tm.max_id == 24);
+  assert (tm.min_id == 1);
+}
+
+void remove_older_ascending () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+
+  for (int i = 1; i < 51; i ++) {
+    var t = new Cb.Tweet ();
+    t.id = i;
+    tm.add (t);
+  }
+
+  assert (tm.get_n_items () == 50);
+  tm.remove_tweets_later_than (25);
+  assert (tm.get_n_items () == 24);
+  assert (tm.max_id == 24);
+  assert (tm.min_id == 1);
+}
+
 void hide_rt () {
   var tm = new Cb.TweetModel ();
 
@@ -816,6 +850,8 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/remove", remove_tweet);
   GLib.Test.add_func ("/tweetmodel/remove-hidden", remove_hidden);
   GLib.Test.add_func ("/tweetmodel/remove-own-retweet", remove_own_retweet);
+  GLib.Test.add_func ("/tweetmodel/remove-older", remove_older);
+  GLib.Test.add_func ("/tweetmodel/remove-older-ascending", remove_older_ascending);
   GLib.Test.add_func ("/tweetmodel/hide-rt", hide_rt);
   GLib.Test.add_func ("/tweetmodel/get-for-id", get_for_id);
   GLib.Test.add_func ("/tweetmodel/min-max-id", min_max_id);
