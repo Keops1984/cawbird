@@ -136,6 +136,111 @@ void tweet_removal () {
   assert (tm.get_n_items () == 5);
 }
 
+void contains () {
+  var tm = new Cb.TweetModel ();
+
+  const int n = 10;
+
+  for (int i = 0; i < n; i++) {
+    var t = new Cb.Tweet ();
+    t.id = 100 + i;
+
+    tm.add (t);
+  }
+
+  for (int i = 0; i < n; i++) {
+    assert (tm.contains_id (100 + i));
+  }
+
+  assert (!tm.contains_id (99));
+  assert (!tm.contains_id (100 + n));
+}
+
+void index_of () {
+  var tm = new Cb.TweetModel ();
+
+  const int n = 10;
+
+  for (int i = 0; i < n; i++) {
+    var t = new Cb.Tweet ();
+    t.id = 100 + i;
+
+    tm.add (t);
+  }
+
+  for (int i = 0; i < n; i++) {
+    assert (tm.index_of (100 + i) == n - i - 1);
+  }
+
+  assert (tm.index_of (99) == -1);
+  assert (tm.index_of (100 + n) == -1);
+
+  var tm2 = new Cb.TweetModel ();
+
+  for (int i = 0; i < n; i++) {
+    var t = new Cb.Tweet ();
+    t.id = 100 + i;
+
+    tm2.add (t);
+
+    var prio_t = new Cb.Tweet ();
+    prio_t.id = 10 + i;
+
+    tm2.add_priority (prio_t);
+  }
+
+  for (int i = 0; i < n; i++) {
+    assert (tm2.index_of (10 + i) == n - i - 1);
+    assert (tm2.index_of (100 + i) == n + n - i - 1);
+  }
+
+  assert (tm2.index_of (99) == -1);
+  assert (tm2.index_of (100 + n) == -1);
+}
+
+void index_of_ascending () {
+  var tm = new Cb.TweetModel ();
+  tm.set_sort_order (true);
+
+  const int n = 10;
+
+  for (int i = 0; i < n; i++) {
+    var t = new Cb.Tweet ();
+    t.id = 100 + i;
+
+    tm.add (t);
+  }
+
+  for (int i = 0; i < n; i++) {
+    assert (tm.index_of (100 + i) == i);
+  }
+
+  assert (tm.index_of (99) == -1);
+  assert (tm.index_of (100 + n) == -1);
+
+  var tm2 = new Cb.TweetModel ();
+  tm2.set_sort_order (true);
+
+  for (int i = 0; i < n; i++) {
+    var t = new Cb.Tweet ();
+    t.id = 100 + i;
+
+    tm2.add (t);
+
+    var prio_t = new Cb.Tweet ();
+    prio_t.id = 10 + i;
+
+    tm2.add_priority (prio_t);
+  }
+
+  for (int i = 0; i < n; i++) {
+    assert (tm2.index_of (10 + i) == i);
+    assert (tm2.index_of (100 + i) == n + i);
+  }
+
+  assert (tm2.index_of (99) == -1);
+  assert (tm2.index_of (100 + n) == -1);
+}
 
 void clear () {
   var tm = new Cb.TweetModel ();
@@ -789,6 +894,32 @@ void same_id () {
   assert (tm.get_n_items () == 1);
   assert (tm.min_id == 1337);
   assert (tm.max_id == 1337);
+
+  // What if we created it from a different source?
+  var t2 = new Cb.Tweet ();
+  t2.id = t.id;
+  tm.add (t2);
+  assert (tm.get_n_items () == 1);
+  assert (tm.min_id == 1337);
+  assert (tm.max_id == 1337);
+
+  // What if we add a priority tweet?
+  var t3 = new Cb.Tweet ();
+  t3.id = t.id;
+  tm.add_priority (t3);
+  assert (tm.get_n_items () == 1);
+  // Min/max will be defaults because we've only got priority IDs left
+  assert (tm.min_id == int64.MAX);
+  assert (tm.max_id == int64.MIN);
+
+  // What if we now re-add as a normal tweet?
+  var t4 = new Cb.Tweet ();
+  t4.id = t.id;
+  tm.add (t4);
+  assert (tm.get_n_items () == 1);
+  // Min/max will be defaults because we've only got priority IDs left
+  assert (tm.min_id == int64.MAX);
+  assert (tm.max_id == int64.MIN);
 }
 
 void priority_ids_basic () {
@@ -845,6 +976,9 @@ int main (string[] args) {
   GLib.Test.add_func ("/tweetmodel/basic-tweet-order", basic_tweet_order);
   GLib.Test.add_func ("/tweetmodel/basic-tweet-order-asc", basic_tweet_order_asc);
   GLib.Test.add_func ("/tweetmodel/tweet-removal", tweet_removal);
+  GLib.Test.add_func ("/tweetmodel/contains", contains);
+  GLib.Test.add_func ("/tweetmodel/index-of", index_of);
+  GLib.Test.add_func ("/tweetmodel/index-of-ascending", index_of_ascending);
   GLib.Test.add_func ("/tweetmodel/clear", clear);
   GLib.Test.add_func ("/tweetmodel/clear2", clear2);
   GLib.Test.add_func ("/tweetmodel/remove", remove_tweet);

@@ -200,6 +200,24 @@ update_min_max_id (CbTweetModel *self,
   }
 }
 
+int
+cb_tweet_model_index_of (CbTweetModel *self,
+                         gint64        id)
+{
+  int i;
+  g_return_val_if_fail (CB_IS_TWEET_MODEL (self), FALSE);
+
+  for (i = 0; i < self->tweets->len; i ++)
+    {
+      CbTweet *tweet = g_ptr_array_index (self->tweets, i);
+
+      if (tweet->id == id)
+        return i;
+    }
+
+  return -1;
+}
+
 static void
 remove_tweet_at_pos (CbTweetModel *self,
                      guint         index)
@@ -222,7 +240,7 @@ remove_tweet_at_pos (CbTweetModel *self,
   emit_items_changed (self, index, 1, 0);
 }
 
-static inline void
+static inline gboolean
 insert_sorted (CbTweetModel *self,
                CbTweet      *tweet,
                gboolean      is_priority)
@@ -288,12 +306,13 @@ insert_sorted (CbTweetModel *self,
       /* This can happen if the same tweet gets inserted into an empty model twice.
        * Generally, we'd like to ignore double insertions, at least right now I can't
        * think of a good use case for it. (2017-06-13) */
-      return;
+      return FALSE;
     }
 
   g_object_ref (tweet);
   g_ptr_array_insert (self->tweets, insert_pos, tweet);
   emit_items_changed (self, insert_pos, 0, 1);
+  return TRUE;
 }
 
 void
@@ -304,16 +323,20 @@ add_tweet_internal (CbTweetModel *self,
   g_return_if_fail (CB_IS_TWEET_MODEL (self));
   g_return_if_fail (CB_IS_TWEET (tweet));
 
-  if (is_priority) {
-    gboolean id_exists = g_array_binary_search (self->priority_ids, &tweet->id, cb_utils_cmp_gint64, NULL);
-    if (!id_exists) {
-      g_array_append_val (self->priority_ids, tweet->id);
-      // The list *should* be sorted except the new item, so hopefully this is a fast sort
-      // It's definitely safer than implementing a binary insert ourselves
-      g_array_sort (self->priority_ids, cb_utils_cmp_gint64);
-    }
+  gboolean priority_id_exists = g_array_binary_search (self->priority_ids, &tweet->id, cb_utils_cmp_gint64, NULL);
+  int non_priority_idx = -1;
+
+  if (is_priority && !priority_id_exists) {
+    g_array_append_val (self->priority_ids, tweet->id);
+    // The list *should* be sorted except the new item, so hopefully this is a fast sort
+    // It's definitely safer than implementing a binary insert ourselves
+    g_array_sort (self->priority_ids, cb_utils_cmp_gint64);
+    non_priority_idx = cb_tweet_model_index_of (self, tweet->id);
   }
 
+  if (!is_priority && priority_id_exists) {
+    return;
+  }
   if (cb_tweet_is_hidden (tweet))
     {
       g_object_ref (tweet);
@@ -321,23 +344,29 @@ add_tweet_internal (CbTweetModel *self,
     }
   else
     {
-      insert_sorted (self, tweet, is_priority);
-
-      if (is_priority) {
-        self->non_priority_start++;
-
-        if (tweet->id > self->max_priority_id)
-          self->max_priority_id = tweet->id;
-
-        if (tweet->id < self->min_priority_id)
-          self->min_priority_id = tweet->id;
+      if (is_priority && non_priority_idx != -1) {
+        remove_tweet_at_pos (self, non_priority_idx);
       }
-      else {
-        if (tweet->id > self->max_id)
-          self->max_id = tweet->id;
 
-        if (tweet->id < self->min_id)
-          self->min_id = tweet->id;
+      gboolean was_inserted = insert_sorted (self, tweet, is_priority);
+
+      if (was_inserted) {
+        if (is_priority) {
+          self->non_priority_start++;
+
+          if (tweet->id > self->max_priority_id)
+            self->max_priority_id = tweet->id;
+
+          if (tweet->id < self->min_priority_id)
+            self->min_priority_id = tweet->id;
+        }
+        else {
+          if (tweet->id > self->max_id)
+            self->max_id = tweet->id;
+
+          if (tweet->id < self->min_id)
+            self->min_id = tweet->id;
+        }
       }
     }
 }
@@ -380,18 +409,7 @@ gboolean
 cb_tweet_model_contains_id (CbTweetModel *self,
                             gint64        id)
 {
-  int i;
-  g_return_val_if_fail (CB_IS_TWEET_MODEL (self), FALSE);
-
-  for (i = 0; i < self->tweets->len; i ++)
-    {
-      CbTweet *tweet = g_ptr_array_index (self->tweets, i);
-
-      if (tweet->id == id)
-        return TRUE;
-    }
-
-  return FALSE;
+  return cb_tweet_model_index_of (self, id) != -1;
 }
 
 void

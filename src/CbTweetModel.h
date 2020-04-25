@@ -47,7 +47,9 @@ struct _CbTweetModel
   guint non_priority_start;
   gint64 min_priority_id;
   gint64 max_priority_id;
+  // Minimum non-priority ID
   gint64 min_id;
+  // Maximum non-priority ID
   gint64 max_id;
 };
 
