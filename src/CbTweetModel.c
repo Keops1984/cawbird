@@ -213,7 +213,7 @@ remove_tweet_at_pos (CbTweetModel *self,
 
   if (index < self->non_priority_start) {
     guint priority_index;
-    gboolean success = g_array_binary_search (self->priority_ids, &id, cb_utils_cmp_gint64, &priority_index);
+    g_array_binary_search (self->priority_ids, &id, cb_utils_cmp_gint64, &priority_index);
     g_array_remove_index (self->priority_ids, priority_index);
     self->non_priority_start--;
   }
