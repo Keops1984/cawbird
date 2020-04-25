@@ -279,6 +279,7 @@ namespace Cb {
   public class TweetModel : GLib.Object, GLib.ListModel {
     public int64 min_id;
     public int64 max_id;
+    public int non_priority_start;
     public GLib.GenericArray<Tweet> hidden_tweets;
 
     public TweetModel ();

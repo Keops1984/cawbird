@@ -194,7 +194,7 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
       this.screen_name = args.get_string (KEY_SCREEN_NAME);
     }
 
-    query_tweet_info (existing);
+    query_tweet_info ();
   }
 
   private void load_user_avatar (string url) {
@@ -224,10 +224,18 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
   }
 
   private void rearrange_tweets (int64 new_id) {
-    //assert (new_id != this.tweet_id);
     if (replies_list_box.model.contains_id (new_id)) {
       // We're moving down the thread to a reply of the currently displayed tweet,
-      // so move the current tweet up into replied_to_list_box
+      // so move the current tweet up into replied_to_list_box.
+      var idx = replies_list_box.model.index_of (new_id);
+
+      if (idx < replies_list_box.model.non_priority_start) {
+        // If it's a priority one, also move everything above it in the thread up
+        for (int i = 0; i < idx; i++) {
+          replied_to_list_box.model.add ((Cb.Tweet)replies_list_box.model.get_item (i)); 
+        }
+      }
+
       replied_to_list_box.model.add (this.tweet);
       replied_to_list_box.show ();
       replies_list_box.model.clear ();
@@ -235,15 +243,18 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
     } else if (replied_to_list_box.model.contains_id (new_id)) {
       // We're moving up the thread to a replied-to tweet so
       // remove all tweets below the selected one from the "replied to" list box
-      // (they'll now be replies) and add the direct successor to the replies list
-      // Other replies will then be loaded by a separate process
+      // (they'll now be replies) and add them to the replies list
+      // Other replies (from other people) will then be loaded by a separate process
+      // but this maintains pre-loaded thread *and* means there's content while
+      // we wait for the network request
       replies_list_box.model.clear ();
       replies_list_box.show ();
-      var t = replied_to_list_box.model.get_for_id (new_id, 1);
-      if (t != null) {
-        replies_list_box.model.add (t);
-      } else {
-        replies_list_box.model.add (this.tweet);
+      var idx = replied_to_list_box.model.index_of (new_id);
+
+      uint n_items = replied_to_list_box.model.get_n_items ();
+      
+      for (int i = idx + 1; i < n_items; i++) {
+       replies_list_box.model.add_priority ((Cb.Tweet)replied_to_list_box.model.get_item (i)); 
       }
 
       replied_to_list_box.model.remove_tweets_later_than (new_id);
@@ -357,7 +368,7 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
     main_window.main_widget.switch_page (Page.PROFILE, bundle);
   }
 
-  private void query_tweet_info (bool existing) {
+  private void query_tweet_info () {
     if (this.cancellable != null) {
       this.cancellable.cancel ();
     }
@@ -402,12 +413,10 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
 
       set_tweet_data (tweet, with);
 
-      if (!existing) {
-        if (tweet.retweeted_tweet == null)
-          load_replied_to_tweet (tweet.source_tweet.reply_id);
-        else
-          load_replied_to_tweet (tweet.retweeted_tweet.reply_id);
-      }
+      if (tweet.retweeted_tweet == null)
+        load_replied_to_tweet (tweet.source_tweet.reply_id);
+      else
+        load_replied_to_tweet (tweet.retweeted_tweet.reply_id);
 
       values_set = true;
     });
@@ -501,7 +510,7 @@ class TweetInfoPage : IPage, ScrollWidget, Cb.MessageReceiver {
    * @param reply_id The id of the tweet the previous tweet was a reply to.
    */
   private void load_replied_to_tweet (int64 reply_id) {
-    if (reply_id == 0) {
+    if (reply_id == 0 || replied_to_list_box.model.contains_id (reply_id)) {
       return;
     }
 
